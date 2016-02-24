@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+
+{% block js %}
+{% endblock %}
+
+
+{% block main %}
+I am the login page
+
+<form method="POST" action="/login">
+{{ form.username  }}
+{{ form.password  }}
+<input type="submit" />
+</form>
+
+{% endblock %}
