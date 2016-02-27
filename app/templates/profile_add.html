@@ -6,11 +6,15 @@
 
 
 {% block main %}
-<form action="{{ url_for('profile_add') }}" method="post">
+<form action="{{ url_for('profile_add') }}" class="form-group" method="post">
 
-       first name: {{ form.first_name }}<br />
-       last_name: {{ form.last_name }}<br />    
-       <input type="submit" />                
+       First name: {{ form.first_name (class="form-control")}}<br />
+       Last Name: {{ form.last_name(class="form-control")}}<br /> 
+       Username: {{ form.username(class="form-control")}}<br/>
+       Email: {{form.email(class="form-control")}}<br/>
+       Password: {{form.password(class="form-control")}}<br/>
+       <input class="btn btn-default" type="submit" />                
 
 </form> 
 {% endblock %}
+
