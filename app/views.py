@@ -10,96 +10,90 @@ from app import app
 from flask import render_template, request, redirect, url_for,jsonify,g,session
 from app import db
 
-from flask.ext.wtf import Form 
-from wtforms.fields import TextField # other fields include PasswordField 
-from wtforms.validators import Required, Email
 from app.models import Myprofile
-from app.forms import LoginForm
+from app.forms import LoginForm,ProfileForm
 
 from flask.ext.login import login_user, logout_user, current_user, login_required
 from app import app, db, lm, oid
-from app import oid, lm
-
-<<<<<<< HEAD
-from flask.ext.login import login_user,current_user,login_required,login_url
-from flask.ext.login import LoginManager
-
-from forms import ProfileForm, LoginForm
-
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
-
-@login_manager.user_loader
-def load_user(userid):
-    return Myprofile.query.get(userid)
-
-
-#from app import load_user
-=======
-class ProfileForm(Form):
-     first_name = TextField('First Name', validators=[Required()])
-     last_name = TextField('Last Name', validators=[Required()])
-     # evil, don't do this
-     image = TextField('Image', validators=[Required(), Email()])
->>>>>>> 5d6d4045e3158dda305fd6c8875f3fcf48bb8bf5
 
 
 @app.before_request
 def before_request():
     g.user = current_user
     
+@app.before_request
+def before_request():
+    g.user = None
+    if 'openid' in session:
+        g.user = User.query.filter_by(openid=session['openid']).first()
+    
+@lm.user_loader
+def load_user(id):
+    return MyProfile.query.get(int(id))
+    
 ###
 # Routing for your application.
 ###
+
 @app.route('/login', methods=['GET', 'POST'])
 @oid.loginhandler
 def login():
-    if g.user is not None and g.user.is_authenticated():
+    if g.user is not None and g.user.is_authenticated:
         return redirect(url_for('index'))
     form = LoginForm()
     print app.config['OPENID_PROVIDERS']
     if form.validate_on_submit():
-        session['remember_me'] = form.remember_me.data
-        return oid.try_login(form.openid.data, ask_for=['nickname', 'email'])
-    return render_template('login.html', 
-                           title='Sign In',
-                           form=form,
-                           providers=app.config['OPENID_PROVIDERS'])
+        openid = request.form.get('openid')
+        if openid:
+        # user = MyProfile.query.filter_by(username=username).first()
+        # if user.username==form.username.data and user.password==form.password.data:
+        #     userid = MyProfile.query.get(int(id))
+        #     loggeduser =load_user(userid)
+        #     login_user(loggeduser)
+            session['remember_me'] = form.remember_me.data
+            oid.try_login(form.openid.data, ask_for=['username', 'password'])
+            return redirect(request.args.get("next") or url_for("home"))
+    return render_template('login.html', title='Sign In',form=form, providers=app.config['OPENID_PROVIDERS'])
+                           
+@oid.after_login
+def after_login(resp):
+    if resp.email is None or resp.email == "":
+        flash('Invalid login. Please try again.')
+        return redirect(url_for('login'))
+    user = MyProfile.query.filter_by(email=resp.email).first()
+    if user is None:
+        nickname = resp.nickname
+        if nickname is None or nickname == "":
+            nickname = resp.email.split('@')[0]
+        user = MyProfile(nickname=nickname, email=resp.email)
+        db.session.add(user)
+        db.session.commit()
+    remember_me = False
+    if 'remember_me' in session:
+        remember_me = session['remember_me']
+        session.pop('remember_me', None)
+    login_user(user, remember = remember_me)
+    return redirect(request.args.get('next') or url_for('index'))
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+    
 @app.route('/')
 @login_required
 def home():
-    """Render website's home page."""
-    return render_template('home.html')
+    user = g.user
+    return render_template('home.html',user=user)
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    form = LoginForm()
-    if request.method == "POST":
-        pass
-    # change this to actually validate the user
-    if form.username.data:
-        # login and validate the user...
-
-        # missing
-        # based on password and username
-        # get user id, load into session
-        user = load_user("1")
-        login_user(user)
-        #flash("Logged in successfully.")
-        return redirect(request.args.get("next") or url_for("home"))
-    return render_template("login.html", form=form)
-  
-  
 @app.route('/profile/', methods=['POST','GET'])
 def profile_add():
+    form = ProfileForm()
+    print openid
     if request.method == 'POST':
-        first_name = request.form['first_name']
-        last_name = request.form['last_name']
-
         # write the information to the database
-        newprofile = Myprofile(first_name=first_name,
-                               last_name=last_name)
+       
+        newprofile = Myprofile(first_name=form.first_name.data,last_name=form.last_name.data,username=form.username.data,email=form.email.data,password=form.password.data)
         db.session.add(newprofile)
         db.session.commit()
 
